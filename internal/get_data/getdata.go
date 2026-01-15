@@ -6,48 +6,6 @@ import (
 	"net/http"
 )
 
-type ProteinIssue struct {
-	ID           string             `json:"rcsb_id"`
-	AccessInfo   RcsbAccessionInfo  `json:"rcsb_accession_info"`
-	ArticleInfo  ArticleAccessInfo  `json:"rcsb_primary_citation"`
-	ExptlInfo    []ExptlAccessInfo  `json:"exptl"`
-	EntitiesInfo EntitiesAccessInfo `json:"rcsb_entry_container_identifiers"`
-}
-
-type RcsbAccessionInfo struct {
-	DepositDate string `json:"deposit_date"`
-}
-
-type ArticleAccessInfo struct {
-	DOI   string `json:"pdbx_database_id_doi"`
-	Title string `json:"title"`
-}
-
-type ExptlAccessInfo struct {
-	Method string `json:"method"`
-}
-
-type EntitiesAccessInfo struct {
-	PolymerID    []string `json:"polymer_entity_ids"`
-	NonPolymerID []string `json:"non_polymer_entity_ids"`
-}
-
-type NonPolymerIssue struct {
-	Entity NameEntityNonPolymerAccession `json:"pdbx_entity_nonpoly"`
-	Data   DataEntityNonPolymerAccession `json:"rcsb_nonpolymer_entity"`
-}
-
-type NameEntityNonPolymerAccession struct {
-	Name   string `json:"name"`
-	CompID string `json:"comp_id"`
-}
-
-type DataEntityNonPolymerAccession struct {
-	FormulaWeight     float32 `json:"formula_weight"`
-	Description       string  `json:"pdbx_description"`
-	NumberOfMolecules int     `json:"pdbx_number_of_molecules"`
-}
-
 func GetIssueDataEntry(url string) (ProteinIssue, error, []string, []string) {
 	res, err := http.Get(url)
 	if err != nil {
@@ -88,6 +46,24 @@ func GetDataForNonPolymers(url string) (NonPolymerIssue, error) {
 	return NonPolymer, nil
 }
 
+func GetDataForPolymers(url string) (PolymerIssue, error) {
+	res, err := http.Get(url)
+	if err != nil {
+		fmt.Printf("Error here 1\n")
+		return PolymerIssue{}, err
+	}
+	defer res.Body.Close()
+	var Polymer PolymerIssue
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&Polymer)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		fmt.Printf("Error here 2\n")
+		return PolymerIssue{}, err
+	}
+	return Polymer, nil
+
+}
 func GetEntitiesURL(url string) ([]string, error) {
 	res, err := http.Get(url)
 	if err != nil {
