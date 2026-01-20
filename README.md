@@ -19,7 +19,7 @@ Before using PDBMDT, it's necessary to install two dependencies:
 After installing the software above, navigate to the folder where you would like to install PDBMDT and run:
 ```bash
 # Install PDBMDT
-go install github.com/mucusscraper/pdb_metadata_tool@latest
+go install github.com/mucusscraper/pdb_metadata_tool@v0.1.0
 ```
 then create a configuration file with the name `.pdbmdtconfig.json` with the following content:
 ```bash
@@ -58,6 +58,7 @@ group CD19 7urv 7urx 6al5 7jic
 group_report cd19
 ```
 This will generate an HTML file in the reports folder containing metadata from all entries in the CD19 group.
+
 You can also generate reports without using groups:
 ```bash
 upload 7o4y 7o52
