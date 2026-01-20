@@ -14,7 +14,7 @@ type Report struct {
 	Grouped   bool
 }
 
-//go:embed template.html
+//go:embed templates/*.html
 var templateFS embed.FS
 
 func GenerateHTML(filename string, data Report) error {
