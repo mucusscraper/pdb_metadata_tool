@@ -19,7 +19,7 @@ Before using PDBMDT, it's necessary to install two dependencies:
 After installing the software above, navigate to the folder where you would like to install PDBMDT and run:
 ```bash
 # Install PDBMDT
-go install github.com/mucusscraper/PDBMetaDataTool@latest
+go install github.com/mucusscraper/pdb_metadata_tool@latest
 ```
 then create a configuration file with the name `.pdbmdtconfig.json` with the following content:
 ```bash
@@ -28,13 +28,11 @@ then create a configuration file with the name `.pdbmdtconfig.json` with the fol
 }
 # {username} should be the user name in PostgreSQL and {password} should be its corresponding password.
 ```
-After that, inside the PDBMDT folder, run:
-```bash
-go build
-```
+Ensure that $HOME/go/bin is in your PATH.
+
 An executable should be created and PDBMDT is ready to use:
 ```bash
-./pdb_metadata_tool
+pdb_metadata_tool
 ```
 
 ## 📖 Usage and examples

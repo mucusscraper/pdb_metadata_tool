@@ -1,6 +1,7 @@
 package reportgenerator
 
 import (
+	"embed"
 	"fmt"
 	"html/template"
 	"os"
@@ -13,12 +14,19 @@ type Report struct {
 	Grouped   bool
 }
 
+//go:embed template.html
+var templateFS embed.FS
+
 func GenerateHTML(filename string, data Report) error {
-	templ, err := template.ParseFiles("templates/index.html")
+	templ, err := template.ParseFS(templateFS, "templates/report.html")
 	if err != nil {
 		return err
 	}
 	filepath := fmt.Sprintf("reports/%v.html", filename)
+	err = os.MkdirAll("reports", 0755)
+	if err != nil {
+		return err
+	}
 	file, err := os.Create(filepath)
 	if err != nil {
 		return err
