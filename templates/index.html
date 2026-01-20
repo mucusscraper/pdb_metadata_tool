@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        {{if .Grouped}}
+            <title>PDB Group Report</title>
+        {{else}}
+            <title>PDB Report</title>
+        {{end}}
+    </head>
+    <body>
+        {{if .Grouped}}
+            <h1>PDB Group Report</h1>
+        {{else}}
+            <h1>PDB Report</h1>
+        {{end}}
+        {{range .PreReport}}
+            <hr>
+            <h2>PDB: {{.Entry.ID}}</h2>
+            <h3>General Info</h3>
+            <ul>
+                <li>Paper Title: {{.Entry.ArticleInfo.Title}}</li>
+                <li>DOI: {{.Entry.ArticleInfo.DOI}}</li>
+                <li>Deposit Date: {{.Entry.AccessInfo.DepositDate}}</li>
+            </ul>
+            <h3>Polymers:</h3>
+            {{range .Polymers}}
+                <div style="margin-bottom:20px; padding-bottom:10px; border-bottom:1px solid #ccc;">
+                    <p><b>Name: </b>{{.EntityGeneralInfo.Description}} - {{.EntityPoly.Type}}</p>  
+                    <p><b>Sequence:</b> {{.EntityPoly.Sequence}}</p>
+                    <p><b>Length:</b> {{.EntityPoly.Length}}</p>
+                    <p><b>Number of molecules:</b> {{.EntityGeneralInfo.Number}}</p>
+                    <p><b>Formula Weight:</b> {{.EntityGeneralInfo.FormulaWeight}}</p>
+                    <p><b>Source:</b> {{(index .EntityPolySourceHost 0).Source}}</p>
+                    <p><b>Host:</b> {{(index .EntityPolySourceHost 0).Host}}</p>
+                </div>
+            {{end}}
+            <h3>Non-Polymers:</h3>
+            {{range .NonPolymers}}
+                <div style="margin-bottom:20px; padding-bottom:10px; border-bottom:1px solid #ccc;">
+                    <p><b>Name:</b> {{.Entity.Name}}</p>
+                    <p><b>Comp ID:</b> {{.Entity.CompID}}</p>
+                    <p><b>Description:</b> {{.Data.Description}}</p>
+                    <p><b>Number of Molecules:</b> {{.Data.NumberOfMolecules}}</p>
+                    <p><b>Formula Weight:</b> {{.Data.FormulaWeight}}</p>
+                </div>
+            {{end}}
+        {{end}}
+    </body>
+</html>

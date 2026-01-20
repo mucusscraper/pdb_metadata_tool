@@ -1,5 +1,11 @@
 package getdata
 
+type PreReport struct {
+	Entry       ProteinIssue
+	Polymers    []PolymerIssue
+	NonPolymers []NonPolymerIssue
+}
+
 type ProteinIssue struct {
 	ID           string             `json:"rcsb_id"`
 	AccessInfo   RcsbAccessionInfo  `json:"rcsb_accession_info"`

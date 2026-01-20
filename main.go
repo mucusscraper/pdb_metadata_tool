@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	cleaninput "github.com/mucusscraper/pdb_metadata_tool/internal/clean_input"
 	"github.com/mucusscraper/pdb_metadata_tool/internal/database"
 	getdata "github.com/mucusscraper/pdb_metadata_tool/internal/get_data"
+	reportgenerator "github.com/mucusscraper/pdb_metadata_tool/internal/report_generator"
 )
 
 const issueURL = "https://data.rcsb.org/rest/v1/core/entry/"
@@ -23,8 +25,16 @@ type State struct {
 	db *database.Queries
 }
 
+type Config struct {
+	DbURL string `json:"db_url"`
+}
+
 func main() {
-	dbURL := "postgres://postgres:postgres@localhost:5432/pdbmdt"
+	file, _ := os.Open(".pdbmdt.config.json")
+	defer file.Close()
+	var config Config
+	json.NewDecoder(file).Decode(&config)
+	dbURL := config.DbURL
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return
@@ -139,9 +149,214 @@ func main() {
 					}
 					fmt.Printf("Removed group from %v\n", id)
 				}
-			} else {
-				for _, id := range ids {
+			} else if ids[0] == "group_report" && len(ids) == 2 {
+				entries, err := dbQueries.GetEntryByUserGroup(context.Background(), ids[1])
+				if err != nil {
+					fmt.Printf("Error getting entry by user group\n")
+					fmt.Printf("%v\n", err)
+					continue
+				}
+				var preReports []getdata.PreReport
+				for _, entry := range entries {
+					ACSI := getdata.ArticleAccessInfo{
+						DOI:   entry.Doi,
+						Title: entry.PaperTitle,
+					}
+					RCSBAI := getdata.RcsbAccessionInfo{
+						DepositDate: entry.DepositDate,
+					}
+					var EXPTLAI []getdata.ExptlAccessInfo
+					EXPTLAI = append(EXPTLAI, getdata.ExptlAccessInfo{
+						Method: entry.Method,
+					})
+					EI := getdata.EntitiesAccessInfo{}
+					dataEntry := getdata.ProteinIssue{
+						ID:           entry.RcsbID,
+						ArticleInfo:  ACSI,
+						AccessInfo:   RCSBAI,
+						ExptlInfo:    EXPTLAI,
+						EntitiesInfo: EI,
+					}
+					polys, err := dbQueries.GetPolys(context.Background(), entry.RcsbID)
+					if err != nil {
+						fmt.Printf("Error getting polys\n")
+						fmt.Printf("%v\n", err)
+						continue
+					}
+					var poylmers_data []getdata.PolymerIssue
+					for _, poly := range polys {
+						EGIA := getdata.EntityGeneralInfoAccess{
+							FormulaWeight: poly.Formulaweight,
+							Description:   poly.Poldescription,
+							Number:        int(poly.NumberOfMolecules),
+						}
+						EPA := getdata.EntityPolyAccess{
+							Type:     poly.Poltype,
+							Length:   int(poly.Pollength),
+							Sequence: poly.Polsequence,
+						}
+						var EPSHA []getdata.EntityPolySourceHostAccess
+						NEPSHA := getdata.EntityPolySourceHostAccess{
+							Source: poly.Source,
+							Host:   poly.Host,
+						}
+						EPSHA = append(EPSHA, NEPSHA)
+						NewPolymerIssue := getdata.PolymerIssue{
+							EntityGeneralInfo:    EGIA,
+							EntityPoly:           EPA,
+							EntityPolySourceHost: EPSHA,
+						}
+						poylmers_data = append(poylmers_data, NewPolymerIssue)
+					}
+					non_polys, err := dbQueries.GetNonPolys(context.Background(), entry.RcsbID)
+					if err != nil {
+						fmt.Printf("Error getting non-polys\n")
+						fmt.Printf("%v\n", err)
+						continue
+					}
+					var non_poly_data []getdata.NonPolymerIssue
+					for _, non_poly := range non_polys {
+						new_entity := getdata.NameEntityNonPolymerAccession{
+							Name:   non_poly.Nonpolname,
+							CompID: non_poly.CompID,
+						}
+						new_data := getdata.DataEntityNonPolymerAccession{
+							FormulaWeight:     non_poly.FormulaWeight,
+							Description:       non_poly.Nonpoldescription,
+							NumberOfMolecules: int(non_poly.NumberOfMolecules),
+						}
+						new_non_poly_data := getdata.NonPolymerIssue{
+							Entity: new_entity,
+							Data:   new_data,
+						}
+						non_poly_data = append(non_poly_data, new_non_poly_data)
+					}
+					preReport := getdata.PreReport{
+						Entry:       dataEntry,
+						Polymers:    poylmers_data,
+						NonPolymers: non_poly_data,
+					}
+					preReports = append(preReports, preReport)
+				}
+				report := reportgenerator.Report{
+					PreReport: preReports,
+					Grouped:   true,
+				}
+				filename := ids[1]
+				err = reportgenerator.GenerateHTML(filename, report)
+				if err != nil {
+					fmt.Printf("Error generating HTML: %v\n", err)
+					continue
+				}
+				fmt.Printf("%v HTML report generated!\n", filename)
+			} else if ids[0] == "report" && len(ids) >= 3 {
+				var entries []database.Entry
+				for _, id := range ids[2:] {
 					entry, err := state.db.GetEntry(context.Background(), strings.ToUpper(id))
+					if err != nil {
+						fmt.Printf("Error getting entry\n")
+						fmt.Printf("%v\n", err)
+						continue
+					}
+					entries = append(entries, entry)
+				}
+				var preReports []getdata.PreReport
+				for _, entry := range entries {
+					ACSI := getdata.ArticleAccessInfo{
+						DOI:   entry.Doi,
+						Title: entry.PaperTitle,
+					}
+					RCSBAI := getdata.RcsbAccessionInfo{
+						DepositDate: entry.DepositDate,
+					}
+					var EXPTLAI []getdata.ExptlAccessInfo
+					EXPTLAI = append(EXPTLAI, getdata.ExptlAccessInfo{
+						Method: entry.Method,
+					})
+					EI := getdata.EntitiesAccessInfo{}
+					dataEntry := getdata.ProteinIssue{
+						ID:           entry.RcsbID,
+						ArticleInfo:  ACSI,
+						AccessInfo:   RCSBAI,
+						ExptlInfo:    EXPTLAI,
+						EntitiesInfo: EI,
+					}
+					polys, err := dbQueries.GetPolys(context.Background(), entry.RcsbID)
+					if err != nil {
+						fmt.Printf("Error getting polys\n")
+						fmt.Printf("%v\n", err)
+						continue
+					}
+					var poylmers_data []getdata.PolymerIssue
+					for _, poly := range polys {
+						EGIA := getdata.EntityGeneralInfoAccess{
+							FormulaWeight: poly.Formulaweight,
+							Description:   poly.Poldescription,
+							Number:        int(poly.NumberOfMolecules),
+						}
+						EPA := getdata.EntityPolyAccess{
+							Type:     poly.Poltype,
+							Length:   int(poly.Pollength),
+							Sequence: poly.Polsequence,
+						}
+						var EPSHA []getdata.EntityPolySourceHostAccess
+						NEPSHA := getdata.EntityPolySourceHostAccess{
+							Source: poly.Source,
+							Host:   poly.Host,
+						}
+						EPSHA = append(EPSHA, NEPSHA)
+						NewPolymerIssue := getdata.PolymerIssue{
+							EntityGeneralInfo:    EGIA,
+							EntityPoly:           EPA,
+							EntityPolySourceHost: EPSHA,
+						}
+						poylmers_data = append(poylmers_data, NewPolymerIssue)
+					}
+					non_polys, err := dbQueries.GetNonPolys(context.Background(), entry.RcsbID)
+					if err != nil {
+						fmt.Printf("Error getting non-polys\n")
+						fmt.Printf("%v\n", err)
+						continue
+					}
+					var non_poly_data []getdata.NonPolymerIssue
+					for _, non_poly := range non_polys {
+						new_entity := getdata.NameEntityNonPolymerAccession{
+							Name:   non_poly.Nonpolname,
+							CompID: non_poly.CompID,
+						}
+						new_data := getdata.DataEntityNonPolymerAccession{
+							FormulaWeight:     non_poly.FormulaWeight,
+							Description:       non_poly.Nonpoldescription,
+							NumberOfMolecules: int(non_poly.NumberOfMolecules),
+						}
+						new_non_poly_data := getdata.NonPolymerIssue{
+							Entity: new_entity,
+							Data:   new_data,
+						}
+						non_poly_data = append(non_poly_data, new_non_poly_data)
+					}
+					preReport := getdata.PreReport{
+						Entry:       dataEntry,
+						Polymers:    poylmers_data,
+						NonPolymers: non_poly_data,
+					}
+					preReports = append(preReports, preReport)
+				}
+				report := reportgenerator.Report{
+					PreReport: preReports,
+					Grouped:   false,
+				}
+				filename := ids[1]
+				err = reportgenerator.GenerateHTML(filename, report)
+				if err != nil {
+					fmt.Printf("Error generating HTML: %v\n", err)
+					continue
+				}
+				fmt.Printf("%v HTML report generated!\n", filename)
+			} else if ids[0] == "upload" && len(ids) >= 2 {
+				for _, id := range ids[1:] {
+					entry, err := state.db.GetEntry(context.Background(), strings.ToUpper(id))
+					// PDB was not uploaded before
 					if err == nil {
 						fmt.Printf("\n")
 						fmt.Printf("#######################ENTRY-ALREADY-LOADED#######################\n")
@@ -156,8 +371,7 @@ func main() {
 						url := fmt.Sprintf("%v%v", issueURL, strings.ToUpper(id))
 						res, err, list_of_urls_polymer, list_of_urls_non_polymers := getdata.GetIssueDataEntry(url, strings.ToUpper(id))
 						if err != nil {
-							fmt.Printf("Error getting data for %v\n", id)
-							continue
+							fmt.Printf("Couldn't get data from the PDB ID provided.\n")
 						}
 						fmt.Printf("\n")
 						fmt.Printf("#######################GENERAL-DATA#######################\n")
@@ -167,18 +381,6 @@ func main() {
 						fmt.Printf("PAPER TITLE: %v\n", res.ArticleInfo.Title)
 						fmt.Printf("METHOD: %v\n\n", res.ExptlInfo[0].Method)
 						var entry_params database.CreateEntryParams
-						if len(ids) == 1 {
-							entry_params = database.CreateEntryParams{
-								ID:          new_id,
-								CreatedAt:   time.Now(),
-								UpdatedAt:   time.Now(),
-								RcsbID:      strings.ToUpper(res.ID),
-								DepositDate: res.AccessInfo.DepositDate,
-								Doi:         res.ArticleInfo.DOI,
-								PaperTitle:  res.ArticleInfo.Title,
-								Method:      res.ExptlInfo[0].Method,
-							}
-						}
 						if len(ids) == 2 {
 							entry_params = database.CreateEntryParams{
 								ID:          new_id,
@@ -189,7 +391,6 @@ func main() {
 								Doi:         res.ArticleInfo.DOI,
 								PaperTitle:  res.ArticleInfo.Title,
 								Method:      res.ExptlInfo[0].Method,
-								UserGroup:   ids[1],
 							}
 						} else {
 							entry_params = database.CreateEntryParams{
@@ -202,8 +403,22 @@ func main() {
 								PaperTitle:  res.ArticleInfo.Title,
 								Method:      res.ExptlInfo[0].Method,
 							}
-							fmt.Printf("Using only the first entry ID given")
 						}
+						/*
+							if len(ids) == 2 {
+								entry_params = database.CreateEntryParams{
+									ID:          new_id,
+									CreatedAt:   time.Now(),
+									UpdatedAt:   time.Now(),
+									RcsbID:      strings.ToUpper(res.ID),
+									DepositDate: res.AccessInfo.DepositDate,
+									Doi:         res.ArticleInfo.DOI,
+									PaperTitle:  res.ArticleInfo.Title,
+									Method:      res.ExptlInfo[0].Method,
+									UserGroup:   ids[1],
+								}
+
+							}*/
 						_, err = state.db.CreateEntry(context.Background(), entry_params)
 						if err != nil {
 							fmt.Printf("Error creating entry\n")
@@ -280,6 +495,19 @@ func main() {
 						}
 					}
 				}
+			} else if ids[0] == "help" && len(ids) == 1 {
+				fmt.Printf("#######################HELP#######################\n\n")
+				fmt.Printf("upload {pdb_id} {pdb_id} .... - uploads at least one PDB using its ID to the database\n\n")
+				fmt.Printf("show {pdb_id} {pdb_id} .... - shows info about at least one PDB-ID already uploaded to the database\n\n")
+				fmt.Printf("poly_show {pdb_id} {pdb_id} .... - shows info about polymers of at least one PDB-ID already uploaded to the database\n\n")
+				fmt.Printf("non_poly_show {pdb_id} {pdb_id} .... - shows info about non-polymers of at least one PDB-ID already uploaded to the database\n\n")
+				fmt.Printf("group {group_name} {pdb_id} {pdb_id} .... - inserts at least one PDB-ID already uploaded to the database in the user-specified group\n\n")
+				fmt.Printf("group_show {group_name} - shows info about the entries of an existing group\n\n")
+				fmt.Printf("remove_group {pdb_id} {pdb_id} .... - removes the existing group of at least one PDB-ID already uploaded to the database\n\n")
+				fmt.Printf("report {report_file_name} {pdb_id} {pdb_id} .... - creates a report file with the specified name containing info about the PDB-ID entries already uploaded to the database\n\n")
+				fmt.Printf("group_report {group_name} - creates a report file of the PDB-ID entries of the specified group\n\n")
+			} else {
+				fmt.Printf("Command not found!\n")
 			}
 		}
 	}

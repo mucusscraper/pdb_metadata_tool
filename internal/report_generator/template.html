@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        {{if .Grouped}}
+            <title>PDB Group Report</title>
+        {{else}}
+            <title>PDB Report</title>
+    </head>
+    <body>
+        {{if .Grouped}}
+            <h1>PDB Group Report</h1>
+        {{else}}
+            <h1>PDB Report</h1>
+        {{range .Report}}
+            <hr>
+            <h2>PDB: {{.Entry.ID}}</h2>
+            <h3>General Info</h3>
+            <ul>
+                <li>Paper Title: {{.Entry.ArticleInfo.Title}}</li>
+                <li>DOI: {{.Entry.ArticleInfo.DOI}}</li>
+                <li>Deposit Date: {{.Entry.AccessInfo.DepositDate}}</li>
+            </ul>
+            <h3>Polymers:</h3>
+            {{range .Polymers}}
+                <p>{{.EntityGeneralInfo.Description - .EntityPoly.Type}}</p>  
+                <p>Sequence: {{.EntityPoly.Sequence}}</p>
+                <p>Length: {{.EntityPoly.Length}}</p>
+                <p>Number of molecules: {{.EntityPoly.Number}}</p>
+                <p>Formula Weight: {{.EntityPoly.FormulaWeight}}</p>
+                <p>Source: {{.EntityPolySourceHost[0].Source}}</p>
+                <p>Host: {{.EntityPolySourceHost[0].Host}}</p>
+            {{end}}
+            <h3>Non-Polymers:</h3>
+            {{range .Non-Polymers}}
+                <p>Name: {{.Entity.Name}}</p>
+                <p>Comp ID: {{.Entity.CompID}}</p>
+                <p>Description: {{.Data.Description}}</p>
+                <p>Number of Molecules: {{.Data.NumberOfMolecules}}</p>
+                <p>Formula Weight: {{.Data.FormulaWeight}}</p>
+            {{end}}
+        {{end}}
+    </body>
+</html>
