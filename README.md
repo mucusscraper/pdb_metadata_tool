@@ -54,7 +54,7 @@ The main workflow to use PDBMDT is to upload related PDB entries, organize them 
 
 ```bash
 upload 7urv 7urx 6al5 7jic
-group CD19 7urv 7urx 6al5 7jic
+group cd19 7urv 7urx 6al5 7jic
 group_report cd19
 ```
 This will generate an HTML file in the reports folder containing metadata from all entries in the CD19 group.
