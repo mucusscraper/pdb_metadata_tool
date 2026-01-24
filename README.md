@@ -1,3 +1,6 @@
+## License
+MIT License © 2026 Daniel Lacerda Oliveira
+
 # PDBMDT - PDB MetaData Tool
 
 PDBMDT/PDBMetaDataTool is an interactive Command-Line-Interface (CLI) tool built in GO that automates metadata annotation of your favorite PDB entries. It also provides a simple and fast way to generate organized HTML report files based on these entries.
